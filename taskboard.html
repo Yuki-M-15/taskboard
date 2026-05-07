@@ -892,11 +892,10 @@ function saveNotionSettings(){
   showToast('Notion設定を保存しました');
 }
 
-// Notion API呼び出し（CORSプロキシ経由）
+// Notion API呼び出し（Cloudflare Workerプロキシ経由）
 async function notionFetch(path, method='GET', body=null){
   const {apiKey}=getNotionCreds();
-  // notion.so公式のCORSプロキシを使用
-  const BASE='https://notion-proxy.notion.workers.dev';
+  const BASE='https://notion-proxy.yukimiyakawa.workers.dev';
   const opts={
     method,
     headers:{
