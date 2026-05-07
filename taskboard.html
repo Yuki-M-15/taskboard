@@ -198,6 +198,15 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .list-add-btn:hover{color:var(--accent);}
 .list-add-btn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.5;}
 
+.list-subtasks{padding:4px 12px 8px 37px;display:flex;flex-direction:column;gap:3px;border-bottom:1px solid var(--border);background:var(--white);}
+.list-sub-row{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);}
+.list-sub-check{width:13px;height:13px;border:1.5px solid var(--border2);border-radius:3px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;}
+.list-sub-check.done{background:var(--low);border-color:var(--low);}
+.list-sub-check.done::after{content:'';width:6px;height:4px;border-left:1.5px solid #fff;border-bottom:1.5px solid #fff;transform:rotate(-45deg) translateY(-1px);}
+.list-sub-check:hover{border-color:var(--accent);}
+.list-sub-text{flex:1;}
+.list-sub-text.done{text-decoration:line-through;color:var(--text3);}
+
 /* ─────────────────────────────
    CALENDAR VIEW
 ───────────────────────────── */
@@ -228,6 +237,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   transition:opacity .1s;
 }
 .cal-task-chip:hover{opacity:.8;}
+.cal-task-chip.dragging-chip{opacity:.35;}
+.cal-cell.cal-drag-over{background:var(--accent-light);outline:2px dashed var(--accent);outline-offset:-2px;}
 .cal-task-chip.high{background:var(--high-bg);color:var(--high);}
 .cal-task-chip.med{background:var(--med-bg);color:var(--med);}
 .cal-task-chip.low{background:var(--low-bg);color:var(--low);}
@@ -321,11 +332,6 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
     </button>
     <button class="nav-item" onclick="setFilter('low')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/></svg>低優先度
-    </button>
-    <div class="nav-divider"></div>
-    <div class="nav-section">ステータス</div>
-    <button class="nav-item" onclick="setFilter('')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>すべて
     </button>
     <div class="nav-divider"></div>
     <div class="nav-section">Notion連携</div>
@@ -608,6 +614,12 @@ function renderList(){
       ul.innerHTML=items.map(t=>{
         const dm=dueMeta(t.due);const dc=dm?(dm.diff<0?'overdue':dm.diff<=2?'soon':''):'';
         const isDone=t.col==='done';
+        const subs=t.subs||[];
+        const subHTML=subs.length?`<div class="list-subtasks">${subs.map((s,si)=>`
+          <div class="list-sub-row">
+            <div class="list-sub-check ${s.done?'done':''}" data-id="${t.id}" data-si="${si}"></div>
+            <span class="list-sub-text ${s.done?'done':''}">${esc(s.text)}</span>
+          </div>`).join('')}</div>`:'';
         return `<div class="list-item" data-id="${t.id}">
           <div class="list-check ${isDone?'done-check':''}" data-id="${t.id}"></div>
           <div class="list-prio ${t.prio}"></div>
@@ -615,7 +627,7 @@ function renderList(){
           <div class="list-tags">${(t.tags||[]).map(g=>`<span class="tag">${esc(g)}</span>`).join('')}</div>
           ${dm?`<div class="list-due ${dc}">${dm.label}</div>`:'<div></div>'}
           <button class="list-menu" data-id="${t.id}"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
-        </div>`;
+        </div>${subHTML}`;
       }).join('');
       ul.querySelectorAll('.list-item').forEach(el=>{
         el.addEventListener('dblclick',()=>openModal(el.dataset.id));
@@ -625,6 +637,16 @@ function renderList(){
       });
       ul.querySelectorAll('.list-menu').forEach(btn=>{
         btn.addEventListener('click',e=>{e.stopPropagation();ctxId=btn.dataset.id;const r=btn.getBoundingClientRect();showCtx(r.right,r.bottom+4);});
+      });
+      ul.querySelectorAll('.list-sub-check').forEach(el=>{
+        el.addEventListener('click',e=>{
+          e.stopPropagation();
+          const t=tasks.find(x=>x.id===el.dataset.id);
+          if(t&&t.subs&&t.subs[+el.dataset.si]!==undefined){
+            t.subs[+el.dataset.si].done=!t.subs[+el.dataset.si].done;
+            save();render();
+          }
+        });
       });
       sec.appendChild(ul);
     }
@@ -684,6 +706,17 @@ function makeCell(y,m,d,isOther,dayTasks,today){
     const chip=document.createElement('div');
     chip.className=`cal-task-chip ${t.col==='done'?'done':t.prio}`;
     chip.textContent=t.title;
+    chip.draggable=true;
+    chip.addEventListener('dragstart',e=>{
+      e.stopPropagation();
+      dragId=t.id;
+      chip.classList.add('dragging-chip');
+      e.dataTransfer.effectAllowed='move';
+    });
+    chip.addEventListener('dragend',()=>{
+      chip.classList.remove('dragging-chip');
+      document.querySelectorAll('.cal-cell').forEach(c=>c.classList.remove('cal-drag-over'));
+    });
     chip.addEventListener('click',e=>{e.stopPropagation();openModal(t.id);});
     cell.appendChild(chip);
   });
@@ -695,6 +728,24 @@ function makeCell(y,m,d,isOther,dayTasks,today){
   }
   const hint=document.createElement('div');hint.className='cal-add-hint';hint.textContent='+ 追加';
   cell.appendChild(hint);
+
+  // セルへのドロップ（納期更新）
+  cell.addEventListener('dragover',e=>{
+    if(!dragId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect='move';
+    cell.classList.add('cal-drag-over');
+  });
+  cell.addEventListener('dragleave',()=>cell.classList.remove('cal-drag-over'));
+  cell.addEventListener('drop',e=>{
+    e.preventDefault();
+    cell.classList.remove('cal-drag-over');
+    if(dragId){
+      const t=tasks.find(x=>x.id===dragId);
+      if(t){t.due=ds;save();render();}
+    }
+    dragId=null;
+  });
 
   cell.addEventListener('click',()=>openModal(null,'todo',ds));
   return cell;
