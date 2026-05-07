@@ -195,7 +195,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .btn-save:hover{background:var(--accent-hover);}
 
 /* Multi-select */
-.multi-select-wrap{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);padding:6px 8px;display:flex;flex-wrap:wrap;gap:4px;min-height:38px;}
+.multi-select-wrap{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);padding:6px 8px;display:flex;flex-wrap:wrap;gap:4px;min-height:38px;}.multi-select-wrap.scrollable{max-height:80px;overflow-y:auto;}
 .ms-option{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;border:1px solid var(--border);background:var(--white);cursor:pointer;font-size:11px;color:var(--text2);transition:all .12s;user-select:none;white-space:nowrap;}
 .ms-option:hover{border-color:var(--accent);color:var(--accent);}
 .ms-option.selected{background:var(--accent-light);border-color:var(--accent);color:var(--accent);font-weight:500;}
@@ -375,7 +375,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
       </div>
       <div>
         <label>種別（複数選択可）</label>
-        <div class="multi-select-wrap" id="tagSelect"></div>
+        <div class="multi-select-wrap scrollable" id="tagSelect"></div>
       </div>
     </div>
     <div>
