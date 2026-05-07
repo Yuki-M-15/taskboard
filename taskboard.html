@@ -913,24 +913,27 @@ async function notionFetch(path, method='GET', body=null){
   return res.json();
 }
 
-// データベース存在確認 → なければ作成
+// データベース存在確認 → なければページの子として作成
 async function ensureDatabase(){
   const {dbId}=getNotionCreds();
-  try{
-    await notionFetch(`/v1/databases/${dbId}`);
-    return dbId; // 存在する
-  }catch(e){
-    if(e.message.includes('404')||e.message.includes('Could not find')){
-      return await createDatabase();
+  // 保存済みのDB IDがあればそれを使う
+  const savedDbId=localStorage.getItem('notion_actual_db_id');
+  if(savedDbId){
+    try{
+      await notionFetch(`/v1/databases/${savedDbId}`);
+      return savedDbId;
+    }catch(e){
+      // 見つからない場合は再作成へ
+      localStorage.removeItem('notion_actual_db_id');
     }
-    throw e;
   }
+  // ページの子としてDBを新規作成
+  return await createDatabase();
 }
 
-// Notionにデータベースを新規作成
+// Notionにデータベースを新規作成（ページの子として）
 async function createDatabase(){
   const {dbId}=getNotionCreds();
-  // dbIdをページIDとして親ページにDBを作成
   const res=await notionFetch('/v1/databases','POST',{
     parent:{type:'page_id', page_id:dbId},
     title:[{type:'text',text:{content:'タスク管理'}}],
@@ -953,9 +956,11 @@ async function createDatabase(){
       'ローカルID':  {rich_text:{}},
     },
   });
-  localStorage.setItem('notion_db_id', res.id.replace(/-/g,''));
+  // 作成されたDB IDを保存（ページIDとは別に管理）
+  const actualDbId=res.id.replace(/-/g,'');
+  localStorage.setItem('notion_actual_db_id', actualDbId);
   showToast('Notionにデータベースを作成しました');
-  return res.id;
+  return actualDbId;
 }
 
 // タスク1件をNotionページとして作成
