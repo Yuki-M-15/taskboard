@@ -694,7 +694,7 @@ document.getElementById('btnAddSub').addEventListener('click',()=>{
 function showCtx(x,y){const m=document.getElementById('ctxMenu');m.style.left=Math.min(x,window.innerWidth-150)+'px';m.style.top=Math.min(y,window.innerHeight-80)+'px';m.classList.add('open');}
 function closeCtx(){document.getElementById('ctxMenu').classList.remove('open');}
 document.getElementById('ctxEdit').addEventListener('click',()=>{closeCtx();if(ctxId)openModal(ctxId);});
-document.getElementById('ctxDelete').addEventListener('click',()=>{if(ctxId&&confirm('削除しますか？')){tasks=tasks.filter(t=>t.id!==ctxId);save();render();}closeCtx();});
+document.getElementById('ctxDelete').addEventListener('click',async()=>{if(ctxId&&confirm('削除しますか？')){const delId=ctxId;tasks=tasks.filter(t=>t.id!==delId);save();render();await archiveNotionTask(delId);}closeCtx();});
 document.addEventListener('click',closeCtx);
 document.getElementById('searchInput').addEventListener('input',e=>{searchQ=e.target.value;render();});
 
@@ -738,8 +738,8 @@ function saveNotionSettings(){
   if(!key){alert('APIキーを入力してください。');return;}
   if(!db&&!pg){alert('データベースIDまたは親ページIDを入力してください。');return;}
   localStorage.setItem('notion_api_key',key);
-  if(db) localStorage.setItem('notion_db_id',db);
-  if(pg) localStorage.setItem('notion_page_id',pg);
+  if(db) localStorage.setItem('notion_db_id',db); else localStorage.removeItem('notion_db_id');
+  if(pg) localStorage.setItem('notion_page_id',pg); else localStorage.removeItem('notion_page_id');
   closeNotionSettings();showToast('Notion設定を保存しました');setSyncStatus('ok','設定済み');
 }
 
@@ -754,7 +754,7 @@ async function notionFetch(path,method='GET',body=null){
 
 async function ensureDatabase(){
   const {dbId,pageId}=getNotionCreds();
-  if(dbId){try{await notionFetch(`/v1/databases/${dbId}`);return dbId;}catch(e){if(!e.message.includes('404')&&!e.message.includes('object_not_found'))throw e;}}
+  if(dbId){try{await notionFetch(`/v1/databases/${dbId}`);return dbId;}catch(e){console.warn("DBとして使えないためクリア:",e.message);localStorage.removeItem("notion_db_id");}}
   if(!pageId) throw new Error('データベースIDまたは親ページIDを設定してください（Notion設定から）。');
   const res=await notionFetch('/v1/databases','POST',{
     parent:{type:'page_id',page_id:pageId},
@@ -806,6 +806,19 @@ async function autoSyncTask(task){
     else await notionFetch('/v1/pages','POST',{parent:{database_id:dbId},properties:buildProps(task)});
     setSyncStatus('ok',`同期 ${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}`);
   }catch(e){console.warn('auto sync:',e);setSyncStatus('err','同期エラー');}
+}
+
+// タスク削除時：Notionのページをアーカイブ（Notion上の「削除」に相当）
+async function archiveNotionTask(localId){
+  const {apiKey,dbId}=getNotionCreds();
+  if(!apiKey||!dbId) return;
+  try{
+    const map=await fetchPageMap(dbId);
+    if(map[localId]){
+      await notionFetch(`/v1/pages/${map[localId]}`,'PATCH',{archived:true});
+      setSyncStatus('ok',`同期 ${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}`);
+    }
+  }catch(e){console.warn('archive failed:',e);setSyncStatus('err','同期エラー');}
 }
 
 async function notionSync(){
