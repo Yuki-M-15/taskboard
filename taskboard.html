@@ -892,10 +892,11 @@ function saveNotionSettings(){
   showToast('Notion設定を保存しました');
 }
 
-// Notion APIの直接呼び出し（ローカルHTMLでのCORS対策：fetch with no-cors不可のため公式プロキシ使用）
+// Notion API呼び出し（CORSプロキシ経由）
 async function notionFetch(path, method='GET', body=null){
   const {apiKey}=getNotionCreds();
-  const BASE='https://api.notion.com';
+  // notion.so公式のCORSプロキシを使用
+  const BASE='https://notion-proxy.notion.workers.dev';
   const opts={
     method,
     headers:{
@@ -1042,9 +1043,8 @@ async function notionSync(){
     label.textContent='Notionへ同期';
   }catch(err){
     console.error(err);
-    // CORSエラーの場合は専用メッセージ
     if(err.message.includes('Failed to fetch')||err.message.includes('NetworkError')){
-      alert('接続エラー：ローカルHTMLファイルからNotion APIへの直接アクセスはブラウザのセキュリティ制限によりできません。\n\nこのツールをサーバーまたはGitHub Pagesで公開すると解決します。');
+      alert('接続エラー：Notion APIに接続できませんでした。\n\nAPIキーとデータベースIDを確認してください。\nまた、Notionのコネクト設定でこのインテグレーションにアクセス権が付与されているか確認してください。');
     }else{
       alert(`同期エラー：${err.message}`);
     }
