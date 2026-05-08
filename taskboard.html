@@ -136,6 +136,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .list-menu{padding:2px 6px;border:none;background:none;cursor:pointer;color:var(--text3);border-radius:4px;transition:background .1s;}
 .list-menu:hover{background:var(--surface2);}
 .list-menu svg{width:13px;height:13px;stroke:currentColor;fill:none;display:block;}
+.list-dept{font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;flex-shrink:0;}
+.list-assignee-inline{font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0;}
 .list-add-btn{display:flex;align-items:center;gap:6px;padding:8px 12px;color:var(--text3);font-size:12px;cursor:pointer;border:none;background:none;font-family:inherit;transition:color .12s;}
 .list-add-btn:hover{color:var(--accent);}
 .list-add-btn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.5;}
@@ -173,7 +175,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .cal-task-chip.med{background:var(--med-bg);color:var(--med);}
 .cal-task-chip.low{background:var(--low-bg);color:var(--low);}
 .cal-task-chip.done{background:var(--low-bg);color:var(--low);text-decoration:line-through;}
-.cal-more{font-size:10px;color:var(--text3);padding:1px 4px;cursor:pointer;}
+.cal-more{font-size:10px;color:var(--accent);padding:1px 4px;cursor:pointer;font-weight:500;}
+.cal-more:hover{text-decoration:underline;}
+.cal-hidden-chips{display:none;}
 .cal-add-hint{font-size:10px;color:var(--text3);opacity:0;transition:opacity .15s;padding:2px 4px;}
 .cal-cell:hover .cal-add-hint{opacity:1;}
 
@@ -353,9 +357,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
       <select id="fDept">
         <option value="">選択してください</option>
         <option>CRAZY</option><option>HR</option><option>CW</option><option>IWAI</option>
-        <option>CGM-婚礼</option><option>CGM-レストラン</option><option>PSC</option>
-        <option>MT-W</option><option>MT-Terrace</option><option>Director</option>
-        <option>CCA</option><option>CR室</option><option>その他</option>
+        <option>CGM-婚礼</option><option>CGM-レストラン</option><option>CGM-PSC</option>
+        <option>MT-婚礼</option><option>MT-Terrace</option><option>ディレクター</option>
+        <option>経理</option><option>CCA</option><option>CR室</option><option>その他</option>
       </select>
     </div>
     <div><label>タスク名 *</label><input type="text" id="fTitle" placeholder="例：LP制作 バナー差し替え"></div>
@@ -464,6 +468,12 @@ function filtered(){
   if(filterPrio) r=r.filter(t=>t.prio===filterPrio);
   if(filterAssignee) r=r.filter(t=>(t.assignees||[]).includes(filterAssignee));
   if(searchQ){const q=searchQ.toLowerCase();r=r.filter(t=>t.title.toLowerCase().includes(q)||(t.note||'').toLowerCase().includes(q));}
+  // 担当部署 → タスク名 の順でソート
+  r.sort((a,b)=>{
+    const da=(a.dept||''),db=(b.dept||'');
+    if(da!==db) return da.localeCompare(db,'ja');
+    return (a.title||'').localeCompare(b.title||'','ja');
+  });
   return r;
 }
 
@@ -564,7 +574,9 @@ function renderList(){
         const dm=dueMeta(t.due),dc=dm?(dm.diff<0?'overdue':dm.diff<=2?'soon':''):'';
         const isDone=t.col==='done';
         const subHTML=(t.subs||[]).length?`<div class="list-subtasks">${(t.subs||[]).map((s,si)=>`<div class="list-sub-row"><div class="list-sub-check ${s.done?'done':''}" data-id="${t.id}" data-si="${si}"></div><span class="list-sub-text ${s.done?'done':''}">${esc(s.text)}</span></div>`).join('')}</div>`:'';
-        return `<div class="list-item" data-id="${t.id}"><div class="list-check ${isDone?'done-check':''}" data-id="${t.id}"></div><div class="list-prio ${t.prio}"></div><div class="list-title ${isDone?'done-title':''}">${esc(t.title)}</div><div class="list-tags">${(t.tags||[]).slice(0,2).map(g=>`<span class="tag">${esc(g)}</span>`).join('')}</div>${dm?`<div class="list-due ${dc}">${dm.label}</div>`:'<div></div>'}<button class="list-menu" data-id="${t.id}"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button></div>${subHTML}`;
+        const deptLabel=t.dept?`<span class="list-dept">${esc(t.dept)}</span>`:'';
+        const assigneeLabel=(t.assignees||[]).length?`<span class="list-assignee-inline">${t.assignees.map(a=>esc(a)).join('・')}</span>`:'';
+        return `<div class="list-item" data-id="${t.id}"><div class="list-check ${isDone?'done-check':''}" data-id="${t.id}"></div><div class="list-prio ${t.prio}"></div>${deptLabel}<div class="list-title ${isDone?'done-title':''}">${esc(t.title)}</div><div class="list-tags">${(t.tags||[]).slice(0,2).map(g=>`<span class="tag">${esc(g)}</span>`).join('')}</div>${assigneeLabel}${dm?`<div class="list-due ${dc}">${dm.label}</div>`:'<div></div>'}<button class="list-menu" data-id="${t.id}"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button></div>${subHTML}`;
       }).join('');
       ul.querySelectorAll('.list-item').forEach(el=>{el.addEventListener('dblclick',()=>openModal(el.dataset.id));});
       ul.querySelectorAll('.list-check').forEach(el=>{el.addEventListener('click',e=>{e.stopPropagation();const t=tasks.find(x=>x.id===el.dataset.id);if(t){t.col=t.col==='done'?'todo':'done';save();render();autoSyncTask(t);}});});
@@ -600,14 +612,31 @@ function makeCell(y,m,d,isOther,dayTasks,today){
   cell.className='cal-cell'+(isOther?' other-month':'')+(cellDate.getTime()===today.getTime()?' today':'');
   const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
   cell.innerHTML=`<div class="cal-date">${d}</div>`;
-  dayTasks.slice(0,3).forEach(t=>{
-    const chip=document.createElement('div');chip.className=`cal-task-chip ${t.col==='done'?'done':t.prio}`;chip.textContent=t.title;chip.draggable=true;
+  function makeChip(t){
+    const chip=document.createElement('div');chip.className=`cal-task-chip ${t.col==='done'?'done':t.prio}`;
+    chip.textContent=(t.dept?`[${t.dept}] `:'')+t.title;
+    chip.draggable=true;
     chip.addEventListener('dragstart',e=>{e.stopPropagation();dragId=t.id;chip.classList.add('dragging-chip');});
     chip.addEventListener('dragend',()=>{chip.classList.remove('dragging-chip');document.querySelectorAll('.cal-cell').forEach(c=>c.classList.remove('cal-drag-over'));});
     chip.addEventListener('click',e=>{e.stopPropagation();openModal(t.id);});
-    cell.appendChild(chip);
-  });
-  if(dayTasks.length>3){const more=document.createElement('div');more.className='cal-more';more.textContent=`+${dayTasks.length-3}件`;cell.appendChild(more);}
+    return chip;
+  }
+  dayTasks.slice(0,3).forEach(t=>cell.appendChild(makeChip(t)));
+  if(dayTasks.length>3){
+    // 隠れているチップを先に追加（非表示）
+    const hidden=document.createElement('div');hidden.className='cal-hidden-chips';hidden.style.display='none';
+    dayTasks.slice(3).forEach(t=>hidden.appendChild(makeChip(t)));
+    cell.appendChild(hidden);
+    // +N件ボタン（アコーディオン）
+    const more=document.createElement('div');more.className='cal-more';more.textContent=`+${dayTasks.length-3}件`;
+    more.addEventListener('click',e=>{
+      e.stopPropagation();
+      const isOpen=hidden.style.display!=='none';
+      hidden.style.display=isOpen?'none':'block';
+      more.textContent=isOpen?`+${dayTasks.length-3}件`:'閉じる';
+    });
+    cell.appendChild(more);
+  }
   const hint=document.createElement('div');hint.className='cal-add-hint';hint.textContent='+ 追加';cell.appendChild(hint);
   cell.addEventListener('dragover',e=>{if(!dragId)return;e.preventDefault();cell.classList.add('cal-drag-over');});
   cell.addEventListener('dragleave',()=>cell.classList.remove('cal-drag-over'));
