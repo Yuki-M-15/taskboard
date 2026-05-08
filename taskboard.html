@@ -167,6 +167,16 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .cal-cell.today{background:#fff8f6;}
 .cal-cell.today .cal-date{background:var(--accent);color:#fff;border-radius:50%;}
 .cal-date{font-size:12px;font-weight:500;color:var(--text2);width:22px;height:22px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;}
+.cal-task-card{background:var(--white);border:1px solid var(--border);border-radius:5px;padding:5px 7px;margin-bottom:4px;cursor:pointer;transition:box-shadow .12s,border-color .12s;box-shadow:var(--shadow);}
+.cal-task-card:hover{box-shadow:var(--shadow-md);border-color:var(--border2);}
+.cal-task-card.dragging-chip{opacity:.35;}
+.cal-task-card.high .cal-card-title{color:var(--high);}
+.cal-task-card.med .cal-card-title{color:var(--med);}
+.cal-task-card.low .cal-card-title{color:var(--low);}
+.cal-task-card.done .cal-card-title{color:var(--low);text-decoration:line-through;}
+.cal-card-title{font-size:11px;font-weight:500;line-height:1.4;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.cal-card-tags{display:flex;flex-wrap:wrap;gap:3px;}
+.cal-card-tag{font-size:10px;padding:1px 6px;border-radius:10px;background:var(--surface2);color:var(--text3);border:1px solid var(--border);white-space:nowrap;}
 .cal-task-chip{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:500;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .1s;}
 .cal-task-chip:hover{opacity:.8;}
 .cal-task-chip.dragging-chip{opacity:.35;}
@@ -613,13 +623,21 @@ function makeCell(y,m,d,isOther,dayTasks,today){
   const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
   cell.innerHTML=`<div class="cal-date">${d}</div>`;
   function makeChip(t){
-    const chip=document.createElement('div');chip.className=`cal-task-chip ${t.col==='done'?'done':t.prio}`;
-    chip.textContent=(t.dept?`[${t.dept}] `:'')+t.title;
-    chip.draggable=true;
-    chip.addEventListener('dragstart',e=>{e.stopPropagation();dragId=t.id;chip.classList.add('dragging-chip');});
-    chip.addEventListener('dragend',()=>{chip.classList.remove('dragging-chip');document.querySelectorAll('.cal-cell').forEach(c=>c.classList.remove('cal-drag-over'));});
-    chip.addEventListener('click',e=>{e.stopPropagation();openModal(t.id);});
-    return chip;
+    const card=document.createElement('div');
+    card.className=`cal-task-card ${t.col==='done'?'done':t.prio}`;
+    card.draggable=true;
+    // タスク名
+    const title=document.createElement('div');title.className='cal-card-title';title.textContent=t.title;
+    card.appendChild(title);
+    // タブ（担当部署・担当者）
+    const tags=document.createElement('div');tags.className='cal-card-tags';
+    if(t.dept){const d=document.createElement('span');d.className='cal-card-tag';d.textContent=t.dept;tags.appendChild(d);}
+    (t.assignees||[]).forEach(a=>{const s=document.createElement('span');s.className='cal-card-tag';s.textContent=a;tags.appendChild(s);});
+    if(tags.children.length) card.appendChild(tags);
+    card.addEventListener('dragstart',e=>{e.stopPropagation();dragId=t.id;card.classList.add('dragging-chip');});
+    card.addEventListener('dragend',()=>{card.classList.remove('dragging-chip');document.querySelectorAll('.cal-cell').forEach(c=>c.classList.remove('cal-drag-over'));});
+    card.addEventListener('click',e=>{e.stopPropagation();openModal(t.id);});
+    return card;
   }
   dayTasks.slice(0,3).forEach(t=>cell.appendChild(makeChip(t)));
   if(dayTasks.length>3){
