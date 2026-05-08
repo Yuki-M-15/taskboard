@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>タスクボード</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗓️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -776,7 +777,12 @@ async function fetchPageMap(dbId){
   while(true){
     const body={page_size:100};if(cursor)body.start_cursor=cursor;
     const res=await notionFetch(`/v1/databases/${dbId}/query`,'POST',body);
-    res.results.forEach(p=>{const id=p.properties['ローカルID']?.rich_text?.[0]?.plain_text;if(id)map[id]=p.id;});
+    res.results.forEach(p=>{
+      const localId=p.properties['ローカルID']?.rich_text?.[0]?.plain_text;
+      // ローカルIDがあればそれをキーに、なければNotionのpageId自体をキーとして登録
+      if(localId) map[localId]=p.id;
+      map[p.id]=p.id; // pageId直接も常に登録
+    });
     if(!res.has_more)break;cursor=res.next_cursor;
   }
   return map;
@@ -847,9 +853,12 @@ async function notionPull(){
   setSyncStatus('loading','取得中...');
   try{
     const res=await notionFetch(`/v1/databases/${dbId}/query`,'POST',{page_size:100});
+    const noLocalIdPages=[]; // ローカルIDが未設定のNotionページを記録
     const pulled=res.results.filter(p=>!p.archived).map(p=>{
       const pr=p.properties;
-      const localId=pr['ローカルID']?.rich_text?.[0]?.plain_text||p.id;
+      const existingLocalId=pr['ローカルID']?.rich_text?.[0]?.plain_text;
+      const localId=existingLocalId||uid(); // ローカルIDがなければ新規発行
+      if(!existingLocalId) noLocalIdPages.push({pageId:p.id,localId}); // 書き戻し対象として記録
       return{
         id:localId,title:pr['タスク名']?.title?.[0]?.plain_text||'',
         note:pr['メモ']?.rich_text?.[0]?.plain_text||'',
@@ -863,6 +872,12 @@ async function notionPull(){
       };
     });
     tasks=pulled;save();render();
+    // ローカルIDが未設定だったNotionページにローカルIDを書き戻す
+    for(const {pageId,localId} of noLocalIdPages){
+      await notionFetch(`/v1/pages/${pageId}`,'PATCH',{
+        properties:{'ローカルID':{rich_text:[{text:{content:localId}}]}}
+      });
+    }
     setSyncStatus('ok',`取得済み ${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}`);
     showToast(`Notionから${tasks.length}件を取得しました`);
   }catch(e){console.error(e);setSyncStatus('err','取得エラー');alert(`取得エラー：${e.message}`);}
