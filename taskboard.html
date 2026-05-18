@@ -224,8 +224,13 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 
 /* Subtasks in modal */
 .subtask-list{display:flex;flex-direction:column;gap:8px;}
-.subtask-row{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
+.subtask-row{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;display:flex;flex-direction:column;gap:6px;transition:box-shadow .15s,opacity .15s;}
+.subtask-row.drag-over-sub{box-shadow:0 0 0 2px var(--accent);border-color:var(--accent);}
+.subtask-row.dragging-sub{opacity:.4;}
 .subtask-row-top{display:flex;align-items:center;gap:7px;}
+.sub-drag-handle{display:flex;align-items:center;cursor:grab;color:var(--text3);flex-shrink:0;padding:2px 0;user-select:none;}
+.sub-drag-handle:active{cursor:grabbing;}
+.sub-drag-handle svg{width:13px;height:13px;fill:currentColor;}
 .subtask-row input[type="checkbox"]{width:14px;height:14px;accent-color:var(--accent);flex-shrink:0;cursor:pointer;}
 .subtask-row .sub-title{flex:1;padding:4px 8px;font-size:12px;}
 .subtask-del{background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;border-radius:3px;transition:color .1s;flex-shrink:0;}
@@ -236,6 +241,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .btn-add-sub{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:inherit;padding:2px 0;transition:color .1s;}
 .btn-add-sub:hover{color:var(--accent);}
 .btn-add-sub svg{width:12px;height:12px;stroke:currentColor;fill:none;}
+/* モーダル内タスク削除ボタン */
+.btn-delete-task{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--high);background:var(--white);color:var(--high);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .12s,color .12s;margin-right:auto;}
+.btn-delete-task:hover{background:var(--high-bg);}
+.btn-delete-task svg{width:13px;height:13px;stroke:currentColor;fill:none;}
 
 /* Context menu */
 .ctx-menu{position:fixed;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:4px;z-index:300;min-width:130px;box-shadow:var(--shadow-md);display:none;}
@@ -408,6 +417,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
       </button>
     </div>
     <div class="modal-footer">
+      <button class="btn-delete-task hidden" id="btnDeleteTask"><svg viewBox="0 0 24 24" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>削除</button>
       <button class="btn-cancel" id="btnCancel">キャンセル</button>
       <button class="btn-save" id="btnSave">保存</button>
     </div>
@@ -719,6 +729,8 @@ function openModal(id=null,col='todo',presetDue=null){
   buildMultiSelect('tagSelect',TYPES,t?t.tags||[]:[]);
   subtasks=t?(t.subs||[]).map(s=>({...s})):[];
   renderSubtasks();
+  // 編集時のみ削除ボタンを表示
+  document.getElementById('btnDeleteTask').classList.toggle('hidden',!id);
   document.getElementById('overlay').classList.add('open');
   setTimeout(()=>document.getElementById('fTitle').focus(),50);
 }
@@ -738,10 +750,21 @@ document.getElementById('btnSave').addEventListener('click',async()=>{
   await autoSyncTask(taskObj);
 });
 
+// モーダル内タスク削除ボタン
+document.getElementById('btnDeleteTask').addEventListener('click',async()=>{
+  if(!editId) return;
+  if(!confirm('このタスクを削除しますか？')) return;
+  const delId=editId;
+  tasks=tasks.filter(t=>t.id!==delId);
+  save();render();closeModal();
+  await archiveNotionTask(delId);
+});
+
 function renderSubtasks(){
   const list=document.getElementById('subtaskList');
-  list.innerHTML=subtasks.map((s,i)=>`<div class="subtask-row">
+  list.innerHTML=subtasks.map((s,i)=>`<div class="subtask-row" draggable="true" data-si="${i}">
     <div class="subtask-row-top">
+      <span class="sub-drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 10 16"><circle cx="3" cy="2" r="1.2"/><circle cx="7" cy="2" r="1.2"/><circle cx="3" cy="6" r="1.2"/><circle cx="7" cy="6" r="1.2"/><circle cx="3" cy="10" r="1.2"/><circle cx="7" cy="10" r="1.2"/><circle cx="3" cy="14" r="1.2"/><circle cx="7" cy="14" r="1.2"/></svg></span>
       <input type="checkbox" ${s.done?'checked':''} data-si="${i}">
       <input type="text" class="sub-title" value="${esc(s.text)}" data-si="${i}" placeholder="サブタスク名">
       <button class="subtask-del" data-si="${i}" type="button"><svg viewBox="0 0 24 24" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -757,6 +780,35 @@ function renderSubtasks(){
   list.querySelectorAll('input[type="date"]').forEach(inp=>inp.addEventListener('change',()=>{subtasks[+inp.dataset.si].due=inp.value;}));
   list.querySelectorAll('select[data-f]').forEach(sel=>sel.addEventListener('change',()=>{subtasks[+sel.dataset.si][sel.dataset.f]=sel.value;}));
   list.querySelectorAll('.subtask-del').forEach(btn=>btn.addEventListener('click',()=>{subtasks.splice(+btn.dataset.si,1);renderSubtasks();}));
+  // ── サブタスクのドラッグ並び替え ──
+  let subDragIdx=null;
+  list.querySelectorAll('.subtask-row').forEach(row=>{
+    row.addEventListener('dragstart',e=>{
+      subDragIdx=+row.dataset.si;
+      setTimeout(()=>row.classList.add('dragging-sub'),0);
+      e.stopPropagation(); // カンバンのdragstartと競合させない
+    });
+    row.addEventListener('dragend',()=>{
+      row.classList.remove('dragging-sub');
+      list.querySelectorAll('.subtask-row').forEach(r=>r.classList.remove('drag-over-sub'));
+      subDragIdx=null;
+    });
+    row.addEventListener('dragover',e=>{
+      e.preventDefault();e.stopPropagation();
+      if(subDragIdx===null||subDragIdx===+row.dataset.si) return;
+      list.querySelectorAll('.subtask-row').forEach(r=>r.classList.remove('drag-over-sub'));
+      row.classList.add('drag-over-sub');
+    });
+    row.addEventListener('dragleave',()=>row.classList.remove('drag-over-sub'));
+    row.addEventListener('drop',e=>{
+      e.preventDefault();e.stopPropagation();
+      const toIdx=+row.dataset.si;
+      if(subDragIdx===null||subDragIdx===toIdx) return;
+      const moved=subtasks.splice(subDragIdx,1)[0];
+      subtasks.splice(toIdx,0,moved);
+      renderSubtasks();
+    });
+  });
 }
 document.getElementById('btnAddSub').addEventListener('click',()=>{
   subtasks.push({text:'',done:false,due:'',assignee:'',type:''});renderSubtasks();
@@ -887,12 +939,17 @@ async function syncSubsToPageBody(pageId, task){
   const children=[
     {object:'block',type:'heading_3',heading_3:{rich_text:[{type:'text',text:{content:'サブタスク'}}]}},
   ];
-  // サブタスク1件ずつ to_do blockとして追加
+  // サブタスク1件ずつ to_do blockとして追加（日付・担当者・種別も付記）
   task.subs.forEach(s=>{
+    const meta=[];
+    if(s.due) meta.push(s.due);
+    if(s.assignee) meta.push(s.assignee);
+    if(s.type) meta.push(s.type);
+    const label=(s.text||'（無題）')+(meta.length?'　｜　'+meta.join('・'):'');
     children.push({
       object:'block',type:'to_do',
       to_do:{
-        rich_text:[{type:'text',text:{content:s.text||'（無題）'}}],
+        rich_text:[{type:'text',text:{content:label}}],
         checked:!!s.done,
         color:'default',
       }
