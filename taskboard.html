@@ -875,13 +875,47 @@ function buildProps(t){
   return p;
 }
 
+// サブタスクをNotionページ本文（children blocks）として書き込む
+async function syncSubsToPageBody(pageId, task){
+  // 既存のblockをすべて取得して削除
+  const existing = await notionFetch(`/v1/blocks/${pageId}/children`);
+  for(const block of existing.results){
+    await notionFetch(`/v1/blocks/${block.id}`,'DELETE');
+  }
+  if(!(task.subs||[]).length) return;
+  // ヘッダー
+  const children=[
+    {object:'block',type:'heading_3',heading_3:{rich_text:[{type:'text',text:{content:'サブタスク'}}]}},
+  ];
+  // サブタスク1件ずつ to_do blockとして追加
+  task.subs.forEach(s=>{
+    children.push({
+      object:'block',type:'to_do',
+      to_do:{
+        rich_text:[{type:'text',text:{content:s.text||'（無題）'}}],
+        checked:!!s.done,
+        color:'default',
+      }
+    });
+  });
+  await notionFetch(`/v1/blocks/${pageId}/children`,'PATCH',{children});
+}
+
 async function autoSyncTask(task){
   const {apiKey,dbId}=getNotionCreds();
   if(!apiKey||!dbId) return;
   try{
     const map=await fetchPageMap(dbId);
-    if(map[task.id]) await notionFetch(`/v1/pages/${map[task.id]}`,'PATCH',{properties:buildProps(task)});
-    else await notionFetch('/v1/pages','POST',{parent:{database_id:dbId},properties:buildProps(task)});
+    let notionPageId;
+    if(map[task.id]){
+      await notionFetch(`/v1/pages/${map[task.id]}`,'PATCH',{properties:buildProps(task)});
+      notionPageId=map[task.id];
+    } else {
+      const res=await notionFetch('/v1/pages','POST',{parent:{database_id:dbId},properties:buildProps(task)});
+      notionPageId=res.id;
+    }
+    // サブタスクをページ本文に同期
+    await syncSubsToPageBody(notionPageId,task);
     setSyncStatus('ok',`同期 ${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}`);
   }catch(e){console.warn('auto sync:',e);setSyncStatus('err','同期エラー');}
 }
@@ -910,8 +944,10 @@ async function notionSync(){
     const map=await fetchPageMap(dbId);
     let cr=0,up=0;
     for(const t of tasks){
-      if(map[t.id]){await notionFetch(`/v1/pages/${map[t.id]}`,'PATCH',{properties:buildProps(t)});up++;}
-      else{await notionFetch('/v1/pages','POST',{parent:{database_id:dbId},properties:buildProps(t)});cr++;}
+      let notionPageId;
+      if(map[t.id]){await notionFetch(`/v1/pages/${map[t.id]}`,'PATCH',{properties:buildProps(t)});notionPageId=map[t.id];up++;}
+      else{const res=await notionFetch('/v1/pages','POST',{parent:{database_id:dbId},properties:buildProps(t)});notionPageId=res.id;cr++;}
+      await syncSubsToPageBody(notionPageId,t);
     }
     showToast(`同期完了：新規${cr}件・更新${up}件`);
     setSyncStatus('ok',`同期済み ${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}`);
