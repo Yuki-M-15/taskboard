@@ -71,10 +71,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .col{width:256px;flex-shrink:0;}
 .col-head{display:flex;align-items:center;gap:7px;padding:8px 10px;margin-bottom:8px;}
 .col-dot{width:7px;height:7px;border-radius:50%;}
-.col[data-id="todo"] .col-dot{background:#8b8fcc;}
-.col[data-id="doing"] .col-dot{background:#4a7ce8;}
-.col[data-id="done"] .col-dot{background:#38a169;}
-.col[data-id="pending"] .col-dot{background:#d4a017;}
+.col[data-id="todo"] .col-dot{background:#38a169;}
+.col[data-id="doing"] .col-dot{background:#d4a017;}
+.col[data-id="done"] .col-dot{background:#4a7ce8;}
+.col[data-id="pending"] .col-dot{background:#8b8fcc;}
 .col-name{font-size:12px;font-weight:600;color:var(--text2);}
 .col-count{margin-left:auto;font-size:11px;color:var(--text3);background:var(--border);padding:1px 7px;border-radius:10px;font-weight:500;}
 .cards{display:flex;flex-direction:column;gap:7px;min-height:48px;padding:2px 0;}
@@ -190,6 +190,13 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .cal-hidden-chips{display:none;}
 .cal-add-hint{font-size:10px;color:var(--text3);opacity:0;transition:opacity .15s;padding:2px 4px;}
 .cal-cell:hover .cal-add-hint{opacity:1;}
+/* サブタスクカード */
+.cal-sub-card{background:#f3f3f3;border:1px solid var(--border);border-radius:5px;padding:4px 7px;margin-bottom:3px;cursor:pointer;transition:box-shadow .12s;}
+.cal-sub-card:hover{box-shadow:var(--shadow-md);}
+.cal-sub-dept{font-size:9px;color:var(--text3);font-weight:500;margin-bottom:2px;letter-spacing:.03em;}
+.cal-sub-title{font-size:10px;color:var(--text2);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.cal-sub-parent{font-size:9px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cal-sub-done .cal-sub-title{text-decoration:line-through;color:var(--text3);}
 
 /* ── Modal ── */
 .overlay{position:fixed;inset:0;background:rgba(20,18,14,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s;}
@@ -366,7 +373,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
       <label>担当部署</label>
       <select id="fDept">
         <option value="">選択してください</option>
-        <option>CRAZY</option><option>HR</option><option>CW</option><option>IWAI</option>
+        <option>CRAZY</option><option>HR</option><option>CW</option><option>アニバ</option><option>IWAI</option>
         <option>CGM-婚礼</option><option>CGM-レストラン</option><option>CGM-PSC</option>
         <option>MT-婚礼</option><option>MT-Terrace</option><option>ディレクター</option>
         <option>経理</option><option>CCA</option><option>CR室</option><option>その他</option>
@@ -445,7 +452,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 <script>
 // ── 定数 ──
 const MEMBERS = ['林 隆三','宮川 雄気','永井 絢','笹原 光','岩田 優里'];
-const TYPES   = ['VI','WEB','コピー','ライティング','KV一式','スライド資料','バナー類','チラシ／リーフレット／ポスター','冊子','ペーパーアイテム (紙袋／招待状／メニュー表など)','写真撮影','イラスト','その他'];
+const TYPES   = ['企画','VI','WEB','コピー','ライティング','KV一式','スライド資料','バナー類','チラシ／リーフレット／ポスター','冊子','ペーパーアイテム (紙袋／招待状／メニュー表など)','写真撮影','イラスト','その他'];
 const COL_TO_NOTION  = {todo:'未着手',doing:'進行中',done:'完了',pending:'ペンディング'};
 const NOTION_TO_COL  = {'未着手':'todo','進行中':'doing','完了':'done','ペンディング':'pending'};
 const PRIO_TO_NOTION = {high:'高',med:'中',low:'低'};
@@ -577,7 +584,7 @@ function renderList(){
   ['todo','doing','done','pending'].forEach(col=>{
     const items=filtered().filter(t=>t.col===col);
     const sec=document.createElement('div');sec.className='list-section';
-    sec.innerHTML=`<div class="list-section-head"><span class="list-section-dot" style="background:${{todo:'#8b8fcc',doing:'#4a7ce8',done:'#38a169',pending:'#d4a017'}[col]}"></span><span class="list-section-name">${COL_LABELS[col]}</span><span class="list-section-count">${items.length}</span></div>`;
+    sec.innerHTML=`<div class="list-section-head"><span class="list-section-dot" style="background:${{todo:'#38a169',doing:'#d4a017',done:'#4a7ce8',pending:'#8b8fcc'}[col]}"></span><span class="list-section-name">${COL_LABELS[col]}</span><span class="list-section-count">${items.length}</span></div>`;
     if(items.length){
       const ul=document.createElement('div');
       ul.innerHTML=items.map(t=>{
@@ -611,12 +618,18 @@ function renderCalendar(){
   const dprev=new Date(calYear,calMonth,0).getDate();
   const today=new Date();today.setHours(0,0,0,0);
   const tbd=(y,m,d)=>{const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;return filtered().filter(t=>t.due===ds);};
-  for(let i=0;i<first;i++){const d=dprev-first+1+i;grid.appendChild(makeCell(calYear,calMonth-1,d,true,tbd(calYear,calMonth-1,d),today));}
-  for(let d=1;d<=dim;d++){grid.appendChild(makeCell(calYear,calMonth,d,false,tbd(calYear,calMonth,d),today));}
+  const tbdSubs=(y,m,d)=>{
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const result=[];
+    filtered().forEach(t=>{(t.subs||[]).forEach(s=>{if(s.due===ds)result.push({sub:s,task:t});});});
+    return result;
+  };
+  for(let i=0;i<first;i++){const d=dprev-first+1+i;grid.appendChild(makeCell(calYear,calMonth-1,d,true,tbd(calYear,calMonth-1,d),tbdSubs(calYear,calMonth-1,d),today));}
+  for(let d=1;d<=dim;d++){grid.appendChild(makeCell(calYear,calMonth,d,false,tbd(calYear,calMonth,d),tbdSubs(calYear,calMonth,d),today));}
   const rem=(7-(first+dim)%7)%7;
-  for(let d=1;d<=rem;d++){grid.appendChild(makeCell(calYear,calMonth+1,d,true,tbd(calYear,calMonth+1,d),today));}
+  for(let d=1;d<=rem;d++){grid.appendChild(makeCell(calYear,calMonth+1,d,true,tbd(calYear,calMonth+1,d),tbdSubs(calYear,calMonth+1,d),today));}
 }
-function makeCell(y,m,d,isOther,dayTasks,today){
+function makeCell(y,m,d,isOther,dayTasks,daySubs,today){
   const cell=document.createElement('div');
   const cellDate=new Date(y,m,d);cellDate.setHours(0,0,0,0);
   cell.className='cal-cell'+(isOther?' other-month':'')+(cellDate.getTime()===today.getTime()?' today':'');
@@ -626,17 +639,27 @@ function makeCell(y,m,d,isOther,dayTasks,today){
     const card=document.createElement('div');
     card.className=`cal-task-card ${t.col==='done'?'done':t.prio}`;
     card.draggable=true;
+    // 担当部署（タスク名の上）
+    if(t.dept){const dept=document.createElement('div');dept.className='card-dept';dept.textContent=t.dept;card.appendChild(dept);}
     // タスク名
     const title=document.createElement('div');title.className='cal-card-title';title.textContent=t.title;
     card.appendChild(title);
-    // タブ（担当部署・担当者）
+    // タブ（担当者）
     const tags=document.createElement('div');tags.className='cal-card-tags';
-    if(t.dept){const d=document.createElement('span');d.className='cal-card-tag';d.textContent=t.dept;tags.appendChild(d);}
     (t.assignees||[]).forEach(a=>{const s=document.createElement('span');s.className='cal-card-tag';s.textContent=a;tags.appendChild(s);});
     if(tags.children.length) card.appendChild(tags);
     card.addEventListener('dragstart',e=>{e.stopPropagation();dragId=t.id;card.classList.add('dragging-chip');});
     card.addEventListener('dragend',()=>{card.classList.remove('dragging-chip');document.querySelectorAll('.cal-cell').forEach(c=>c.classList.remove('cal-drag-over'));});
     card.addEventListener('click',e=>{e.stopPropagation();openModal(t.id);});
+    return card;
+  }
+  function makeSubChip(s,parentTask){
+    const card=document.createElement('div');
+    card.className='cal-sub-card'+(s.done?' cal-sub-done':'');
+    if(parentTask.dept){const dept=document.createElement('div');dept.className='cal-sub-dept';dept.textContent=parentTask.dept;card.appendChild(dept);}
+    const title=document.createElement('div');title.className='cal-sub-title';title.textContent=s.text||'（無題サブタスク）';card.appendChild(title);
+    const parent=document.createElement('div');parent.className='cal-sub-parent';parent.textContent='↳ '+parentTask.title;card.appendChild(parent);
+    card.addEventListener('click',e=>{e.stopPropagation();openModal(parentTask.id);});
     return card;
   }
   dayTasks.slice(0,3).forEach(t=>cell.appendChild(makeChip(t)));
@@ -655,6 +678,8 @@ function makeCell(y,m,d,isOther,dayTasks,today){
     });
     cell.appendChild(more);
   }
+  // サブタスク
+  daySubs.forEach(({sub,task})=>cell.appendChild(makeSubChip(sub,task)));
   const hint=document.createElement('div');hint.className='cal-add-hint';hint.textContent='+ 追加';cell.appendChild(hint);
   cell.addEventListener('dragover',e=>{if(!dragId)return;e.preventDefault();cell.classList.add('cal-drag-over');});
   cell.addEventListener('dragleave',()=>cell.classList.remove('cal-drag-over'));
