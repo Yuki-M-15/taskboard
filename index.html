@@ -332,21 +332,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
     <button class="nav-item" id="nav-all" onclick="setAssigneeFilter('')">
       <span class="nav-checkbox" id="navchk-all"></span>全員
     </button>
-    <button class="nav-item" onclick="setAssigneeFilter('林 隆三')">
-      <span class="nav-checkbox" id="navchk-hayashi"></span>林 隆三
-    </button>
-    <button class="nav-item" onclick="setAssigneeFilter('宮川 雄気')">
-      <span class="nav-checkbox" id="navchk-miyakawa"></span>宮川 雄気
-    </button>
-    <button class="nav-item" onclick="setAssigneeFilter('永井 絢')">
-      <span class="nav-checkbox" id="navchk-nagai"></span>永井 絢
-    </button>
-    <button class="nav-item" onclick="setAssigneeFilter('笹原 光')">
-      <span class="nav-checkbox" id="navchk-sasahara"></span>笹原 光
-    </button>
-    <button class="nav-item" onclick="setAssigneeFilter('岩田 優里')">
-      <span class="nav-checkbox" id="navchk-iwata"></span>岩田 優里
-    </button>
+    <div id="memberNavItems"></div>
     <div class="nav-divider"></div>
     <div class="nav-section">優先度</div>
     <button class="nav-item" onclick="setPrioFilter('high')">
@@ -446,10 +432,6 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
       <label>担当部署</label>
       <select id="fDept">
         <option value="">選択してください</option>
-        <option>CRAZY</option><option>HR</option><option>CW</option><option>アニバ</option><option>IWAI</option>
-        <option>CGM-婚礼</option><option>CGM-レストラン</option><option>CGM-PSC</option>
-        <option>MT-婚礼</option><option>MT-Terrace</option><option>ディレクター</option>
-        <option>経理</option><option>CCA</option><option>CR室</option><option>その他</option>
       </select>
     </div>
     <div><label>タスク名 *</label><input type="text" id="fTitle" placeholder="例：LP制作 バナー差し替え"></div>
@@ -524,23 +506,19 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 <div class="toast" id="toast"></div>
 
 <script>
-// ── 定数 ──
-const MEMBERS = ['林 隆三','宮川 雄気','永井 絢','笹原 光','岩田 優里'];
-const TYPES   = ['企画','VI','WEB','コピー','ライティング','KV一式','スライド資料','バナー類','チラシ／リーフレット／ポスター','冊子','ペーパーアイテム (紙袋／招待状／メニュー表など)','写真撮影','イラスト','その他'];
+// ── 定数（固定値） ──
 const COL_TO_NOTION  = {todo:'未着手',doing:'進行中',done:'完了',pending:'ペンディング'};
 const NOTION_TO_COL  = {'未着手':'todo','進行中':'doing','完了':'done','ペンディング':'pending'};
 const PRIO_TO_NOTION = {high:'高',med:'中',low:'低'};
 const NOTION_TO_PRIO = {'高':'high','中':'med','低':'low'};
-const MEMBER_IDS = {'林 隆三':'hayashi','宮川 雄気':'miyakawa','永井 絢':'nagai','笹原 光':'sasahara','岩田 優里':'iwata'};
+
+// ── 動的リスト（Notionスキーマから取得） ──
+let MEMBERS = [];
+let TYPES   = [];
+let DEPTS   = [];
 
 // ── State ──
-let tasks = JSON.parse(localStorage.getItem('kb_tasks3')||'null') || [
-  {id:'t1',title:'LPバナー差し替え',note:'Slackで依頼あり。',col:'todo',prio:'high',due:'2025-05-10',dept:'CRAZY',assignees:['宮川 雄気'],tags:['バナー類'],subs:[{text:'デザイン確認',done:false,due:'',assignee:'',type:''},{text:'コーディング',done:false,due:'',assignee:'',type:''}]},
-  {id:'t2',title:'会社案内パンフ 初稿確認',note:'',col:'doing',prio:'med',due:'2025-05-14',dept:'HR',assignees:['林 隆三','永井 絢'],tags:['冊子'],subs:[]},
-  {id:'t3',title:'SNS投稿バナー（5月分）',note:'毎月定例。',col:'todo',prio:'low',due:'2025-05-20',dept:'CGM-婚礼',assignees:['笹原 光'],tags:['バナー類'],subs:[]},
-  {id:'t4',title:'採用サイト更新',note:'',col:'pending',prio:'med',due:'',dept:'HR',assignees:['岩田 優里'],tags:['WEB'],subs:[]},
-  {id:'t5',title:'展示会パネル印刷手配',note:'',col:'done',prio:'high',due:'2025-04-30',dept:'MT-W',assignees:['宮川 雄気'],tags:['チラシ／リーフレット／ポスター'],subs:[]},
-];
+let tasks = JSON.parse(localStorage.getItem('kb_tasks3')||'null') || [];
 let currentView='kanban', filterPrio='', filterAssignee='', searchQ='', dragId=null, editId=null, ctxId=null, subtasks=[];
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
 
@@ -574,17 +552,49 @@ function setPrioFilter(p){filterPrio=filterPrio===p?'':p;updateNav();render();}
 function resetAllFilters(){filterAssignee='';filterPrio='';searchQ='';document.getElementById('searchInput').value='';updateNav();updateTitle();render();}
 function updateTitle(){document.getElementById('topbarTitle').textContent=filterAssignee?`${filterAssignee}のタスク`:'全員のタスク';}
 function updateNav(){
-  const memberMap={'':'all','林 隆三':'hayashi','宮川 雄気':'miyakawa','永井 絢':'nagai','笹原 光':'sasahara','岩田 優里':'iwata'};
-  Object.entries(memberMap).forEach(([name,id])=>{
-    const chk=document.getElementById(`navchk-${id}`);
-    if(!chk) return;
-    const active=filterAssignee===name&&!filterPrio;
-    chk.parentElement.classList.toggle('active',active);
+  const allChk=document.getElementById('navchk-all');
+  if(allChk) allChk.parentElement.classList.toggle('active',!filterAssignee&&!filterPrio);
+  document.querySelectorAll('.member-navchk').forEach(chk=>{
+    chk.parentElement.classList.toggle('active',filterAssignee===chk.dataset.name&&!filterPrio);
   });
   ['high','med','low'].forEach(p=>{
     const chk=document.getElementById(`navchk-${p}`);
     if(chk) chk.parentElement.classList.toggle('active',filterPrio===p);
   });
+}
+
+// ── Notionスキーマ取得（担当者・種別・担当部署を動的にセット） ──
+async function fetchNotionSchema(){
+  const {apiKey,dbId}=getNotionCreds();
+  if(!apiKey||!dbId) return;
+  try{
+    const db=await notionFetch(`/v1/databases/${dbId}`);
+    const ap=db.properties['担当者'];
+    const tp=db.properties['種別'];
+    const dp=db.properties['担当部署'];
+    if(ap?.multi_select?.options) MEMBERS=ap.multi_select.options.map(o=>o.name);
+    if(tp?.multi_select?.options) TYPES=tp.multi_select.options.map(o=>o.name);
+    if(dp?.select?.options) DEPTS=dp.select.options.map(o=>o.name);
+    renderMemberNav();
+    populateDeptSelect();
+  }catch(e){console.warn('スキーマ取得エラー:',e);}
+}
+
+function renderMemberNav(){
+  const container=document.getElementById('memberNavItems');
+  if(!container) return;
+  container.innerHTML=MEMBERS.map(name=>
+    `<button class="nav-item member-nav-btn" onclick="setAssigneeFilter('${name.replace(/'/g,"\\'")}')"><span class="nav-checkbox member-navchk" data-name="${name.replace(/"/g,'&quot;')}"></span>${name}</button>`
+  ).join('');
+  updateNav();
+}
+
+function populateDeptSelect(){
+  const sel=document.getElementById('fDept');
+  if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">選択してください</option>'+
+    DEPTS.map(d=>`<option${cur===d?' selected':''}>${d}</option>`).join('');
 }
 
 // ── View ──
@@ -783,6 +793,7 @@ function openModal(id=null,col='todo',presetDue=null){
   editId=id;subtasks=[];
   const t=id?tasks.find(x=>x.id===id):null;
   document.getElementById('modalTitle').textContent=id?'タスクを編集':'タスクを追加';
+  populateDeptSelect();
   document.getElementById('fDept').value=t?t.dept||'':'';
   document.getElementById('fTitle').value=t?t.title:'';
   document.getElementById('fNote').value=t?t.note||'':'';
@@ -930,6 +941,7 @@ function saveNotionSettings(){
   if(db) localStorage.setItem('notion_db_id',db); else localStorage.removeItem('notion_db_id');
   if(pg) localStorage.setItem('notion_page_id',pg); else localStorage.removeItem('notion_page_id');
   closeNotionSettings();showToast('Notion設定を保存しました');setSyncStatus('ok','設定済み');
+  fetchNotionSchema();
 }
 
 async function notionFetch(path,method='GET',body=null){
@@ -1187,7 +1199,10 @@ render();
   const {apiKey,dbId}=getNotionCreds();
   if(apiKey&&dbId){
     setSyncStatus('loading','同期中...');
-    try{await notionPull();}
+    try{
+      await fetchNotionSchema();
+      await notionPull();
+    }
     catch(e){setSyncStatus('err','接続エラー');}
   }else{
     setSyncStatus('','未設定');
