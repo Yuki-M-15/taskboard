@@ -85,6 +85,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .card-dept{font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:500;letter-spacing:.03em;}
 .card-top{display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;}
 .card-title{font-size:13px;font-weight:500;line-height:1.45;flex:1;color:var(--text);}
+.card-title.done-title{text-decoration:line-through;color:var(--text3);}
 .card-menu{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:none;background:none;cursor:pointer;color:var(--text3);border-radius:4px;transition:color .1s,background .1s;margin-top:-1px;}
 .card-menu:hover{color:var(--text2);background:var(--surface2);}
 .card-menu svg{width:13px;height:13px;fill:none;stroke:currentColor;}
@@ -160,7 +161,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .cal-today-btn:hover{border-color:var(--accent);color:var(--accent);}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
 .cal-day-header{background:var(--surface2);padding:8px 4px;text-align:center;font-size:11px;font-weight:600;color:var(--text3);}
-.cal-cell{background:var(--white);min-height:100px;padding:6px;cursor:pointer;transition:background .1s;}
+.cal-cell{background:var(--white);min-height:100px;padding:6px;cursor:pointer;transition:background .1s;min-width:0;overflow:hidden;}
 .cal-cell:hover{background:var(--accent-light);}
 .cal-cell.other-month{background:var(--surface2);}
 .cal-cell.other-month .cal-date{color:var(--text3);}
@@ -170,10 +171,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .cal-task-card{background:var(--white);border:1px solid var(--border);border-radius:5px;padding:5px 7px;margin-bottom:4px;cursor:pointer;transition:box-shadow .12s,border-color .12s;box-shadow:var(--shadow);}
 .cal-task-card:hover{box-shadow:var(--shadow-md);border-color:var(--border2);}
 .cal-task-card.dragging-chip{opacity:.35;}
-.cal-task-card.high .cal-card-title{color:var(--high);}
-.cal-task-card.med .cal-card-title{color:var(--med);}
-.cal-task-card.low .cal-card-title{color:var(--low);}
-.cal-task-card.done .cal-card-title{color:var(--low);text-decoration:line-through;}
+.cal-task-card.todo .cal-card-title{color:#38a169;}
+.cal-task-card.doing .cal-card-title{color:#d4a017;}
+.cal-task-card.done .cal-card-title{color:#4a7ce8;text-decoration:line-through;}
+.cal-task-card.pending .cal-card-title{color:#8b8fcc;}
 .cal-card-title{font-size:11px;font-weight:500;line-height:1.4;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .cal-card-tags{display:flex;flex-wrap:wrap;gap:3px;}
 .cal-card-tag{font-size:10px;padding:1px 6px;border-radius:10px;background:var(--surface2);color:var(--text3);border:1px solid var(--border);white-space:nowrap;}
@@ -550,26 +551,26 @@ function cardHTML(t){
   const done=(t.subs||[]).filter(s=>s.done).length,total=(t.subs||[]).length;
   const pct=total?Math.round(done/total*100):0;
   const dm=dueMeta(t.due);
-  const dc=dm?(dm.diff<0?'overdue':dm.diff<=2?'soon':''):'';
+  const dc=(t.col==='done')?'':(dm?(dm.diff<0?'overdue':dm.diff<=2?'soon':''):'');
   const assignHTML=(t.assignees||[]).map(a=>`<span class="assignee-chip">${esc(a)}</span>`).join('');
   return `<div class="card" draggable="true" data-id="${t.id}">
     ${t.dept?`<div class="card-dept">${esc(t.dept)}</div>`:''}
-    <div class="card-top"><div class="card-title">${esc(t.title)}</div>
+    <div class="card-top"><div class="card-title${t.col==='done'?' done-title':''}">${esc(t.title)}</div>
     <button class="card-menu" data-id="${t.id}"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button></div>
     ${assignHTML?`<div class="card-assignees">${assignHTML}</div>`:''}
     ${t.tags?.length?`<div class="card-tags">${t.tags.map(g=>`<span class="tag">${esc(g)}</span>`).join('')}</div>`:''}
     <div class="card-meta">
       <span class="badge-prio ${t.prio}">${{high:'優先度 高',med:'優先度 中',low:'優先度 低'}[t.prio]}</span>
-      ${dm?`<span class="badge-due ${dc}"><svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${dm.label}</span>`:''}
+      ${(dm&&!(t.col==='done'&&dm.diff<0))?`<span class="badge-due ${dc}"><svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${dm.label}</span>`:''}
     </div>
     ${total?`<div class="sub-progress"><span>${done}/${total}</span><div class="sub-bar"><div class="sub-fill" style="width:${pct}%"></div></div></div>`:''}
   </div>`;
 }
 function attachCardEvents(){
   document.querySelectorAll('.card').forEach(el=>{
-    el.addEventListener('dragstart',()=>{dragId=el.dataset.id;setTimeout(()=>el.classList.add('dragging'),0);});
-    el.addEventListener('dragend',()=>{el.classList.remove('dragging');document.querySelectorAll('.cards').forEach(c=>c.classList.remove('drag-over'));});
-    el.addEventListener('dblclick',()=>openModal(el.dataset.id));
+    el.addEventListener('dragstart',()=>{el._isDragging=true;dragId=el.dataset.id;setTimeout(()=>el.classList.add('dragging'),0);});
+    el.addEventListener('dragend',()=>{el.classList.remove('dragging');document.querySelectorAll('.cards').forEach(c=>c.classList.remove('drag-over'));setTimeout(()=>{el._isDragging=false;},50);});
+    el.addEventListener('click',()=>{if(!el._isDragging)openModal(el.dataset.id);});
   });
   document.querySelectorAll('.card-menu').forEach(btn=>{
     btn.addEventListener('click',e=>{e.stopPropagation();ctxId=btn.dataset.id;const r=btn.getBoundingClientRect();showCtx(r.right,r.bottom+4);});
@@ -605,7 +606,7 @@ function renderList(){
         const assigneeLabel=(t.assignees||[]).length?`<span class="list-assignee-inline">${t.assignees.map(a=>esc(a)).join('・')}</span>`:'';
         return `<div class="list-item" data-id="${t.id}"><div class="list-check ${isDone?'done-check':''}" data-id="${t.id}"></div><div class="list-prio ${t.prio}"></div>${deptLabel}<div class="list-title ${isDone?'done-title':''}">${esc(t.title)}</div><div class="list-tags">${(t.tags||[]).slice(0,2).map(g=>`<span class="tag">${esc(g)}</span>`).join('')}</div>${assigneeLabel}${dm?`<div class="list-due ${dc}">${dm.label}</div>`:'<div></div>'}<button class="list-menu" data-id="${t.id}"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button></div>${subHTML}`;
       }).join('');
-      ul.querySelectorAll('.list-item').forEach(el=>{el.addEventListener('dblclick',()=>openModal(el.dataset.id));});
+      ul.querySelectorAll('.list-item').forEach(el=>{el.addEventListener('click',()=>openModal(el.dataset.id));});
       ul.querySelectorAll('.list-check').forEach(el=>{el.addEventListener('click',e=>{e.stopPropagation();const t=tasks.find(x=>x.id===el.dataset.id);if(t){t.col=t.col==='done'?'todo':'done';save();render();autoSyncTask(t);}});});
       ul.querySelectorAll('.list-menu').forEach(btn=>{btn.addEventListener('click',e=>{e.stopPropagation();ctxId=btn.dataset.id;const r=btn.getBoundingClientRect();showCtx(r.right,r.bottom+4);});});
       ul.querySelectorAll('.list-sub-check').forEach(el=>{el.addEventListener('click',e=>{e.stopPropagation();const t=tasks.find(x=>x.id===el.dataset.id);if(t&&t.subs[+el.dataset.si]!==undefined){t.subs[+el.dataset.si].done=!t.subs[+el.dataset.si].done;save();render();}});});
@@ -647,7 +648,7 @@ function makeCell(y,m,d,isOther,dayTasks,daySubs,today){
   cell.innerHTML=`<div class="cal-date">${d}</div>`;
   function makeChip(t){
     const card=document.createElement('div');
-    card.className=`cal-task-card ${t.col==='done'?'done':t.prio}`;
+    card.className=`cal-task-card ${t.col}`;
     card.draggable=true;
     // 担当部署（タスク名の上）
     if(t.dept){const dept=document.createElement('div');dept.className='card-dept';dept.textContent=t.dept;card.appendChild(dept);}
