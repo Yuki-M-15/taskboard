@@ -270,8 +270,12 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   .sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:100;}
   .sidebar.mobile-open{transform:translateX(0);box-shadow:var(--shadow-md);}
   .hamburger{display:flex;}
-  .main{margin-left:0;}
-  .topbar{padding:8px 12px;height:auto;flex-wrap:wrap;gap:6px;}
+
+  /* ── メインエリア：画面幅に固定（カンバンの横長コンテンツがヘッダーを押し広げないよう） ── */
+  .main{margin-left:0;max-width:100vw;overflow-x:hidden;}
+
+  /* ── トップバー：常に画面内に収める ── */
+  .topbar{padding:8px 12px;height:auto;flex-wrap:wrap;gap:6px;width:100%;box-sizing:border-box;}
   .topbar-title{font-size:13px;order:0;}
   .view-tabs{order:10;flex-basis:100%;margin-top:2px;}
   .view-tab{flex:1;justify-content:center;font-size:11px;padding:5px 6px;}
@@ -280,15 +284,28 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   .sync-status{display:none;}
   .btn-add{padding:7px 10px;font-size:12px;}
   .btn-add-label{display:none;}
-  .content{padding:10px 10px 80px;}
-  .board{gap:8px;}
+
+  /* ── コンテンツ：横スクロールはここで受け持つ ── */
+  .content{padding:10px 0 80px;overflow-x:auto;}
+  .board{gap:8px;padding:0 10px 12px;}
   .col{width:230px;}
+
+  /* ── リストビュー：横スクロール式（カンバンと同じ感覚） ── */
+  .list-view{overflow-x:visible;}
+  .list-section{min-width:560px;padding:0 10px;}
+  .list-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+  .list-subtasks{min-width:560px;}
+
+  /* ── カレンダー：現状維持（余白のみ調整） ── */
+  .cal-header{padding:0 10px;}
+  .cal-grid{margin:0 10px;}
   .cal-cell{min-height:52px;padding:3px;}
   .cal-date{width:18px;height:18px;font-size:10px;margin-bottom:2px;}
   .cal-card-title{font-size:9px;}
   .cal-card-tags{display:none;}
   .cal-sub-title{font-size:9px;}
   .cal-month{font-size:13px;}
+
   .overlay{padding:0;align-items:flex-end;}
   .modal{border-radius:12px 12px 0 0;max-height:88vh;padding:18px;}
   .toast{bottom:72px;right:50%;transform:translateX(50%) translateY(6px);}
