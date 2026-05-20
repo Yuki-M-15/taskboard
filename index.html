@@ -1081,7 +1081,20 @@ async function notionPull(){
   if(!apiKey||!dbId){openNotionSettings();return;}
   setSyncStatus('loading','取得中...');
   try{
-    const res=await notionFetch(`/v1/databases/${dbId}/query`,'POST',{page_size:100});
+    // 完了タスクは直近30日分のみ取得（古いものは除外してパフォーマンスを改善）
+    const cutoff=new Date();cutoff.setDate(cutoff.getDate()-30);
+    const cutoffStr=cutoff.toISOString().split('T')[0];
+    const res=await notionFetch(`/v1/databases/${dbId}/query`,'POST',{
+      page_size:100,
+      filter:{or:[
+        {property:'ステータス',select:{does_not_equal:'完了'}},
+        {property:'納期',date:{is_empty:true}},
+        {and:[
+          {property:'ステータス',select:{equals:'完了'}},
+          {property:'納期',date:{on_or_after:cutoffStr}}
+        ]}
+      ]}
+    });
     const noLocalIdPages=[];
     // まずメタデータを全取得（notionPageIdを一時保持）
     const pulled=res.results.filter(p=>!p.archived).map(p=>{
@@ -1168,15 +1181,16 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 
 // ── Init ──
 updateNav();
+// キャッシュがあれば即座に表示し、Notion同期はバックグラウンドで実行
+render();
 (async()=>{
   const {apiKey,dbId}=getNotionCreds();
   if(apiKey&&dbId){
-    setSyncStatus('loading','起動時取得中...');
+    setSyncStatus('loading','同期中...');
     try{await notionPull();}
-    catch(e){setSyncStatus('err','接続エラー');render();}
+    catch(e){setSyncStatus('err','接続エラー');}
   }else{
     setSyncStatus('','未設定');
-    render();
   }
 })();
 
