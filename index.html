@@ -290,11 +290,15 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   .board{gap:8px;padding:0 10px 12px;}
   .col{width:230px;}
 
-  /* ── リストビュー：横スクロール式（カンバンと同じ感覚） ── */
+  /* ── リストビュー：横スクロール式（タイトル優先・サブタスク小さめ） ── */
   .list-view{overflow-x:visible;}
-  .list-section{min-width:560px;padding:0 10px;}
-  .list-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
-  .list-subtasks{min-width:560px;}
+  .list-section{min-width:640px;padding:0 10px;}
+  .list-item{flex-wrap:nowrap;}
+  .list-title{white-space:nowrap;flex-shrink:0;overflow:visible;max-width:none;}
+  .list-tags{flex-shrink:0;}
+  .list-sub-row{font-size:11px;}
+  .list-sub-text{white-space:nowrap;font-size:11px;}
+  .list-subtasks{min-width:640px;}
 
   /* ── カレンダー：現状維持（余白のみ調整） ── */
   .cal-header{padding:0 10px;}
