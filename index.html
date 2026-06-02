@@ -516,8 +516,8 @@ const NOTION_TO_PRIO = {'高':'high','中':'med','低':'low'};
 let MEMBERS = [];
 let TYPES   = [];
 let DEPTS   = [];
-// ── マイタスク（サブタスク）の業務種別 ──
-const SUB_TYPES = ['調査・企画','資料作成','制作','修正・確認','入稿','撮影・取材','ミーティング'];
+// ── マイタスク（サブタスク）の種別 ──
+const SUB_TYPES = ['調査・企画','資料作成','原稿制作','デザイン','修正・確認','校了・入稿','撮影・取材','ミーティング'];
 
 // ── State ──
 let tasks = JSON.parse(localStorage.getItem('kb_tasks3')||'null') || [];
@@ -849,7 +849,7 @@ function renderSubtasks(){
     <div class="subtask-row-meta">
       <input type="date" value="${s.due||''}" data-si="${i}" data-f="due">
       <select data-si="${i}" data-f="assignee"><option value="">担当者</option>${MEMBERS.map(m=>`<option ${s.assignee===m?'selected':''}>${m}</option>`).join('')}</select>
-      <select data-si="${i}" data-f="type"><option value="">業務種別</option>${SUB_TYPES.map(tp=>`<option ${s.type===tp?'selected':''}>${tp}</option>`).join('')}</select>
+      <select data-si="${i}" data-f="type"><option value="">種別</option>${SUB_TYPES.map(tp=>`<option ${s.type===tp?'selected':''}>${tp}</option>`).join('')}</select>
     </div>
   </div>`).join('');
   list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.addEventListener('change',()=>{subtasks[+cb.dataset.si].done=cb.checked;}));
