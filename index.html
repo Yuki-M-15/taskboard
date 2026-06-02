@@ -429,12 +429,12 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   <div class="modal">
     <div class="modal-title" id="modalTitle">タスクを追加</div>
     <div>
-      <label>担当部署</label>
+      <label>対象部署</label>
       <select id="fDept">
         <option value="">選択してください</option>
       </select>
     </div>
-    <div><label>タスク名 *</label><input type="text" id="fTitle" placeholder="例：LP制作 バナー差し替え"></div>
+    <div><label>プロジェクト名 *</label><input type="text" id="fTitle" placeholder="例：LP制作 バナー差し替え"></div>
     <div>
       <label>担当者（複数選択可）</label>
       <div class="multi-select-wrap" id="assigneeSelect"></div>
@@ -456,7 +456,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
       </div>
     </div>
     <div>
-      <label>サブタスク</label>
+      <label>マイタスク</label>
       <div class="subtask-list" id="subtaskList"></div>
       <button class="btn-add-sub" id="btnAddSub" type="button">
         <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>追加
@@ -516,6 +516,8 @@ const NOTION_TO_PRIO = {'高':'high','中':'med','低':'low'};
 let MEMBERS = [];
 let TYPES   = [];
 let DEPTS   = [];
+// ── マイタスク（サブタスク）の業務種別 ──
+const SUB_TYPES = ['調査・企画','資料作成','制作','修正・確認','入稿','撮影・取材','ミーティング'];
 
 // ── State ──
 let tasks = JSON.parse(localStorage.getItem('kb_tasks3')||'null') || [];
@@ -746,19 +748,19 @@ function makeCell(y,m,d,isOther,dayTasks,daySubs,today){
     card.addEventListener('click',e=>{e.stopPropagation();openModal(parentTask.id);});
     return card;
   }
-  dayTasks.slice(0,3).forEach(t=>cell.appendChild(makeChip(t)));
+  dayTasks.slice(0,4).forEach(t=>cell.appendChild(makeChip(t)));
   if(dayTasks.length>3){
     // 隠れているチップを先に追加（非表示）
     const hidden=document.createElement('div');hidden.className='cal-hidden-chips';hidden.style.display='none';
-    dayTasks.slice(3).forEach(t=>hidden.appendChild(makeChip(t)));
+    dayTasks.slice(4).forEach(t=>hidden.appendChild(makeChip(t)));
     cell.appendChild(hidden);
     // +N件ボタン（アコーディオン）
-    const more=document.createElement('div');more.className='cal-more';more.textContent=`+${dayTasks.length-3}件`;
+    const more=document.createElement('div');more.className='cal-more';more.textContent=`+${dayTasks.length-4}件`;
     more.addEventListener('click',e=>{
       e.stopPropagation();
       const isOpen=hidden.style.display!=='none';
       hidden.style.display=isOpen?'none':'block';
-      more.textContent=isOpen?`+${dayTasks.length-3}件`:'閉じる';
+      more.textContent=isOpen?`+${dayTasks.length-4}件`:'閉じる';
     });
     cell.appendChild(more);
   }
@@ -841,13 +843,13 @@ function renderSubtasks(){
     <div class="subtask-row-top">
       <span class="sub-drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 10 16"><circle cx="3" cy="2" r="1.2"/><circle cx="7" cy="2" r="1.2"/><circle cx="3" cy="6" r="1.2"/><circle cx="7" cy="6" r="1.2"/><circle cx="3" cy="10" r="1.2"/><circle cx="7" cy="10" r="1.2"/><circle cx="3" cy="14" r="1.2"/><circle cx="7" cy="14" r="1.2"/></svg></span>
       <input type="checkbox" ${s.done?'checked':''} data-si="${i}">
-      <input type="text" class="sub-title" value="${esc(s.text)}" data-si="${i}" placeholder="サブタスク名">
+      <input type="text" class="sub-title" value="${esc(s.text)}" data-si="${i}" placeholder="マイタスク名">
       <button class="subtask-del" data-si="${i}" type="button"><svg viewBox="0 0 24 24" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="subtask-row-meta">
       <input type="date" value="${s.due||''}" data-si="${i}" data-f="due">
       <select data-si="${i}" data-f="assignee"><option value="">担当者</option>${MEMBERS.map(m=>`<option ${s.assignee===m?'selected':''}>${m}</option>`).join('')}</select>
-      <select data-si="${i}" data-f="type"><option value="">種別</option>${TYPES.map(tp=>`<option ${s.type===tp?'selected':''}>${tp}</option>`).join('')}</select>
+      <select data-si="${i}" data-f="type"><option value="">業務種別</option>${SUB_TYPES.map(tp=>`<option ${s.type===tp?'selected':''}>${tp}</option>`).join('')}</select>
     </div>
   </div>`).join('');
   list.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.addEventListener('change',()=>{subtasks[+cb.dataset.si].done=cb.checked;}));
@@ -859,6 +861,7 @@ function renderSubtasks(){
   let subDragIdx=null;
   list.querySelectorAll('.subtask-row').forEach(row=>{
     row.addEventListener('dragstart',e=>{
+      if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'){e.preventDefault();return;}
       subDragIdx=+row.dataset.si;
       setTimeout(()=>row.classList.add('dragging-sub'),0);
       e.stopPropagation(); // カンバンのdragstartと競合させない
@@ -1013,7 +1016,7 @@ async function syncSubsToPageBody(pageId, task){
   if(!(task.subs||[]).length) return;
   // ヘッダー
   const children=[
-    {object:'block',type:'heading_3',heading_3:{rich_text:[{type:'text',text:{content:'サブタスク'}}]}},
+    {object:'block',type:'heading_3',heading_3:{rich_text:[{type:'text',text:{content:'マイタスク'}}]}},
   ];
   // サブタスク1件ずつ to_do blockとして追加（日付・担当者・種別も付記）
   task.subs.forEach(s=>{
