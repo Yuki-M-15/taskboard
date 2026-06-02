@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>タスクボード</title>
+<title>プロジェクトボード</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗓️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -325,7 +325,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 <!-- Sidebar -->
 <div class="sidebar" id="sidebar">
   <div class="sidebar-logo" onclick="resetAllFilters()">
-    <span class="logo-dot"></span>タスクボード
+    <span class="logo-dot"></span>プロジェクトボード
   </div>
   <div class="sidebar-nav">
     <div class="nav-section">担当者</div>
@@ -375,7 +375,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
     <button class="hamburger" id="hamburgerBtn" aria-label="メニューを開く">
       <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
-    <div class="topbar-title" id="topbarTitle">全員のタスク</div>
+    <div class="topbar-title" id="topbarTitle">プロジェクト一覧</div>
     <div class="view-tabs">
       <button class="view-tab active" data-view="kanban" onclick="switchView('kanban')">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>カンバン
@@ -397,7 +397,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
         <span id="syncLabel">未設定</span>
       </div>
       <button class="btn-add" id="btnNewTask">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="btn-add-label">タスク追加</span>
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="btn-add-label">作成</span>
       </button>
     </div>
   </div>
@@ -552,7 +552,7 @@ function filtered(){
 function setAssigneeFilter(name){filterAssignee=name;filterPrio='';updateNav();updateTitle();render();}
 function setPrioFilter(p){filterPrio=filterPrio===p?'':p;updateNav();render();}
 function resetAllFilters(){filterAssignee='';filterPrio='';searchQ='';document.getElementById('searchInput').value='';updateNav();updateTitle();render();}
-function updateTitle(){document.getElementById('topbarTitle').textContent=filterAssignee?`${filterAssignee}のタスク`:'全員のタスク';}
+function updateTitle(){document.getElementById('topbarTitle').textContent=filterAssignee?`${filterAssignee}のタスク`:'プロジェクト一覧';}
 function updateNav(){
   const allChk=document.getElementById('navchk-all');
   if(allChk) allChk.parentElement.classList.toggle('active',!filterAssignee&&!filterPrio);
@@ -860,8 +860,12 @@ function renderSubtasks(){
   // ── サブタスクのドラッグ並び替え ──
   let subDragIdx=null;
   list.querySelectorAll('.subtask-row').forEach(row=>{
+    // INPUT/SELECT操作中はrow自体をdraggable=falseにしてドラッグ誤発動を防ぐ
+    row.querySelectorAll('input,select').forEach(field=>{
+      field.addEventListener('mousedown',()=>{ row.draggable=false; });
+      field.addEventListener('blur',()=>{ row.draggable=true; });
+    });
     row.addEventListener('dragstart',e=>{
-      if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'){e.preventDefault();return;}
       subDragIdx=+row.dataset.si;
       setTimeout(()=>row.classList.add('dragging-sub'),0);
       e.stopPropagation(); // カンバンのdragstartと競合させない
